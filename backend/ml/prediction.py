@@ -1,7 +1,7 @@
 import os
 import pickle
 import traceback
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -48,13 +48,14 @@ class PredictionService:
         with open(feature_path, "rb") as f:
             self.feature_columns = pickle.load(f)
 
-        self.explainer = ModelExplainer(self.model, self.model_dir)
-        self.explainer.feature_names = self.feature_columns
-
         try:
+            self.explainer = ModelExplainer(self.model, self.model_dir)
+            self.explainer.feature_names = self.feature_columns
             self.explainer.explainer = shap.TreeExplainer(self.model)
+            print("SHAP initialized successfully")
         except Exception as e:
-            print("SHAP initialization failed:", e)
+            print("SHAP ERROR:", str(e))
+            self.explainer = None
 
         print("Model Loaded Successfully")
 
@@ -71,15 +72,15 @@ class PredictionService:
         print("After Feature Engineering")
         print(df.columns.tolist())
 
-        # Add any missing features
+        # Add missing columns
         for col in self.feature_columns:
             if col not in df.columns:
                 df[col] = 0
 
-        # Remove unwanted columns
+        # Keep correct order
         df = df[self.feature_columns]
 
-        # Convert everything to numeric
+        # Convert to numeric
         df = df.apply(pd.to_numeric, errors="coerce")
 
         # Replace NaN
@@ -110,11 +111,15 @@ class PredictionService:
             else:
                 risk_level = "LOW"
 
-            try:
-                explanation = self.explainer.explain_prediction(X)
-                top_factors = explanation.get("top_risk_factors", [])
-            except Exception:
-                top_factors = []
+            top_factors = []
+
+            if self.explainer is not None:
+                try:
+                    explanation = self.explainer.explain_prediction(X)
+                    top_factors = explanation.get("top_risk_factors", [])
+                except Exception as e:
+                    print("SHAP Prediction Error:", str(e))
+                    top_factors = []
 
             recommendation = self._generate_recommendation(
                 risk_level,
@@ -141,13 +146,19 @@ class PredictionService:
     def _generate_recommendation(self, risk_level, risk_factors):
 
         if risk_level == "HIGH":
-            return "IMMEDIATE ACTION REQUIRED: Contact customer immediately and review loan."
+            return (
+                "IMMEDIATE ACTION REQUIRED: Contact customer immediately and review loan."
+            )
 
         elif risk_level == "MEDIUM":
-            return "Monitor customer closely and schedule follow-up."
+            return (
+                "Monitor customer closely and schedule follow-up."
+            )
 
         else:
-            return "Customer is low risk. Continue normal monitoring."
+            return (
+                "Customer is low risk. Continue normal monitoring."
+            )
 
     def batch_predict(self, input_data_list):
 
