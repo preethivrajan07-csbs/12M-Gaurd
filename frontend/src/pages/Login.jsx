@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Building2, Lock, User, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const Login = () => {
+const Login = ({ setIsAuthenticated }) => {
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,7 +17,8 @@ const Login = () => {
     setTimeout(() => {
       if (credentials.username === 'admin' && credentials.password === 'admin123') {
         localStorage.setItem('isAuthenticated', 'true');
-        navigate('/dashboard');
+setIsAuthenticated(true);
+navigate('/dashboard', { replace: true });
       } else {
         setError('Invalid credentials. Please try again.');
       }
